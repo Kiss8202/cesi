@@ -302,9 +302,33 @@ parse_mtr() {
     echo "$avg"; echo "$loss"; return 0
 }
 
+# ---------- 国内测速文件URL ----------
+# 格式: 显示名称 测速URL
+declare -A SPEEDTEST_URLS=(
+    ["东北_沈阳联通"]="沈阳联通 http://speedtest.sydx.singlenet.cn:8080/speedtest/random4000x4000.jpg"
+    ["东北_大连联通"]="大连联通 http://speedtest.dldx.singlenet.cn:8080/speedtest/random4000x4000.jpg"
+    ["东北_长春联通"]="长春联通 http://speedtest.ccdx.singlenet.cn:8080/speedtest/random4000x4000.jpg"
+    ["东北_哈尔滨联通"]="哈尔滨联通 http://speedtest.hrbdx.singlenet.cn:8080/speedtest/random4000x4000.jpg"
+    ["华北_北京联通"]="北京联通 http://speedtest.bjunicom.com.cn:8080/speedtest/random4000x4000.jpg"
+    ["华北_北京电信"]="北京电信 http://speedtest.bjtelecom.net:8080/speedtest/random4000x4000.jpg"
+    ["华北_北京移动"]="北京移动 http://speedtest.bjmcc.net:8080/speedtest/random4000x4000.jpg"
+    ["华北_天津联通"]="天津联通 http://speedtest.tjunicom.com:8080/speedtest/random4000x4000.jpg"
+    ["华东_上海联通"]="上海联通 http://speedtest.shunicom.com:8080/speedtest/random4000x4000.jpg"
+    ["华东_上海电信"]="上海电信 http://speedtest.shtelecom.com.cn:8080/speedtest/random4000x4000.jpg"
+    ["华东_上海移动"]="上海移动 http://speedtest.shmcc.com.cn:8080/speedtest/random4000x4000.jpg"
+    ["华东_杭州电信"]="杭州电信 http://speedtest.hztelecom.com.cn:8080/speedtest/random4000x4000.jpg"
+    ["华东_南京电信"]="南京电信 http://speedtest.njtelecom.com.cn:8080/speedtest/random4000x4000.jpg"
+    ["华南_广州联通"]="广州联通 http://speedtest.gdunicom.com.cn:8080/speedtest/random4000x4000.jpg"
+    ["华南_广州电信"]="广州电信 http://speedtest.gdtelecom.com.cn:8080/speedtest/random4000x4000.jpg"
+    ["华南_深圳电信"]="深圳电信 http://speedtest.sztelecom.com.cn:8080/speedtest/random4000x4000.jpg"
+    ["华中_武汉电信"]="武汉电信 http://speedtest.whtelecom.com.cn:8080/speedtest/random4000x4000.jpg"
+    ["西南_成都电信"]="成都电信 http://speedtest.cdtelecom.com.cn:8080/speedtest/random4000x4000.jpg"
+    ["西南_重庆联通"]="重庆联通 http://speedtest.cqunicom.com:8080/speedtest/random4000x4000.jpg"
+    ["西北_西安电信"]="西安电信 http://speedtest.xatelecom.com.cn:8080/speedtest/random4000x4000.jpg"
+)
+
 # ---------- 国内区域节点数据 ----------
-# 格式: 城市英文名 运营商关键字 显示名称 speedtest节点ID(可选)
-# 节点ID通过 speedtest -L 获取，如果预置ID失效会自动尝试从列表获取
+# 格式: 城市英文名 运营商关键字 显示名称
 declare -A REGION_NODES=(
     ["东北_1"]="shenyang china unicom 沈阳联通"
     ["东北_2"]="dalian china unicom 大连联通"
@@ -429,19 +453,35 @@ select_cn_node() {
     fi
 
     local selected="${nodes[$((node_opt-1))]}"
-    local city=$(echo "$selected" | awk '{print $1}')
-    local isp=$(echo "$selected" | awk '{print $2" "$3}')
     local name=$(echo "$selected" | awk '{print $4}')
 
-    # 优先通过 speedtest -L 实时获取节点ID
-    local id=$(get_node_id "$city" "$isp")
-    if [ -z "$id" ]; then
-        echo -e "${RED}无法获取 ${name} 的有效节点ID，请检查网络或更换节点。${NC}" >&2
-        echo "" >&2
+    # 查找对应测速URL
+    local url_key=""
+    for key in "${!SPEEDTEST_URLS[@]}"; do
+        if [[ "$key" == ${region_key}_${name} ]]; then
+            url_key="$key"
+            break
+        fi
+    done
+
+    if [ -z "$url_key" ]; then
+        echo -e "${YELLOW}${name} 暂无预置测速文件，将尝试使用 speedtest 节点。${NC}" >&2
+        local city=$(echo "$selected" | awk '{print $1}')
+        local isp=$(echo "$selected" | awk '{print $2" "$3}')
+        local id=$(get_node_id "$city" "$isp")
+        if [ -n "$id" ]; then
+            echo "speedtest:$id $name"
+        else
+            echo -e "${RED}无法获取 ${name} 的有效测速方式。${NC}" >&2
+            echo "" >&2
+            return
+        fi
         return
     fi
 
-    echo "$id $name"
+    local url_data="${SPEEDTEST_URLS[$url_key]}"
+    local url=$(echo "$url_data" | awk '{print $2}')
+    echo "curl:$url $name"
 }
 
 # ---------- 菜单1：测速 ----------
@@ -506,26 +546,53 @@ menu_speedtest() {
         return
     fi
 
-    local id=$(echo "$cn_node" | awk '{print $1}')
+    local mode=$(echo "$cn_node" | awk '{print $1}')
     local desc=$(echo "$cn_node" | cut -d' ' -f2-)
+    local cn_dl="0" cn_ul="0" cn_server="$desc"
 
-    echo -e "${YELLOW}使用节点 ID: $id (${desc})${NC}"
-
-    local cn_result=$(run_speedtest "$id")
-    local ret=$?
-    if [ $ret -eq 2 ]; then
-        read -p "按回车返回..."
-        return
-    elif [ $ret -ne 0 ]; then
-        echo -e "${RED}国内测速失败，可能节点不可用或网络问题。${NC}"
-        echo -e "${YELLOW}建议稍后重试或选择其他节点。${NC}"
-        read -p "按回车返回..."
-        return
+    if [[ "$mode" == curl:* ]]; then
+        local url="${mode#curl:}"
+        echo -e "${YELLOW}使用 curl 下载测速: $desc${NC}"
+        echo -e "${YELLOW}正在下载测试文件...${NC}"
+        local tmpfile="/tmp/cn_speedtest_$$.bin"
+        local start_time=$(date +%s.%N)
+        curl -o "$tmpfile" -L --max-time 30 -s "$url" 2>/dev/null
+        local curl_ret=$?
+        local end_time=$(date +%s.%N)
+        rm -f "$tmpfile"
+        if [ $curl_ret -ne 0 ]; then
+            echo -e "${RED}下载测速失败，可能URL不可用或网络问题。${NC}"
+            read -p "按回车返回..."
+            return
+        fi
+        local duration=$(echo "$end_time - $start_time" | bc)
+        if (( $(echo "$duration > 0" | bc -l) )); then
+            # 文件大小约 10MB (random4000x4000.jpg)
+            local file_size_mb=10
+            cn_dl=$(echo "scale=2; $file_size_mb * 8 / $duration" | bc)
+        fi
+        cn_ul="0"
+        evaluate_speed "国内下载" "$cn_dl" "$cn_ul" "$desc"
+    else
+        local id="${mode#speedtest:}"
+        echo -e "${YELLOW}使用节点 ID: $id (${desc})${NC}"
+        local cn_result=$(run_speedtest "$id")
+        local ret=$?
+        if [ $ret -eq 2 ]; then
+            read -p "按回车返回..."
+            return
+        elif [ $ret -ne 0 ]; then
+            echo -e "${RED}国内测速失败，可能节点不可用或网络问题。${NC}"
+            echo -e "${YELLOW}建议稍后重试或选择其他节点。${NC}"
+            read -p "按回车返回..."
+            return
+        fi
+        cn_dl=$(echo "$cn_result" | awk '{print $1}')
+        cn_ul=$(echo "$cn_result" | awk '{print $2}')
+        cn_server=$(echo "$cn_result" | cut -d' ' -f3-)
+        evaluate_speed "国内" "$cn_dl" "$cn_ul" "$cn_server"
     fi
-    local cn_dl=$(echo "$cn_result" | awk '{print $1}')
-    local cn_ul=$(echo "$cn_result" | awk '{print $2}')
-    local cn_server=$(echo "$cn_result" | cut -d' ' -f3-)
-    evaluate_speed "国内" "$cn_dl" "$cn_ul" "$cn_server"
+
     evaluate_combined "$local_dl" "$cn_dl" "$cn_server"
     read -p "按回车返回..."
 }
