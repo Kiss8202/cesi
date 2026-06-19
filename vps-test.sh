@@ -102,7 +102,8 @@ evaluate_combined() {
 run_speedtest() {
     local id="$1"
     local output_file="/tmp/speedtest_output.txt"
-    local cmd="speedtest-cli --simple"
+    # 先尝试 HTTPS (--secure)，避免 403
+    local cmd="speedtest-cli --simple --secure"
     if [ -n "$id" ]; then
         cmd="$cmd --server $id"
     fi
@@ -115,10 +116,17 @@ run_speedtest() {
             rm -f "$output_file"
             return 2
         fi
-        echo -e "${RED}测速失败${NC}" >&2
-        cat "$output_file" >&2
-        rm -f "$output_file"
-        return 1
+        # secure 失败，回退到普通 HTTP
+        cmd="speedtest-cli --simple"
+        [ -n "$id" ] && cmd="$cmd --server $id"
+        $cmd > "$output_file" 2>&1
+        ret=$?
+        if [ $ret -ne 0 ] || [ ! -s "$output_file" ]; then
+            echo -e "${RED}测速失败${NC}" >&2
+            cat "$output_file" >&2
+            rm -f "$output_file"
+            return 1
+        fi
     fi
     # Python speedtest-cli --simple 输出格式:
     # Ping: 24.532 ms
@@ -562,12 +570,12 @@ menu_speedtest() {
     # 如果本地测速节点名包含 China，说明 speedtest-cli 把空ID解析成了中国节点，需要重新测
     if echo "$local_server" | grep -qi "china"; then
         echo -e "${YELLOW}检测到本地测速节点异常（非就近节点），尝试强制使用最近节点重新测速...${NC}"
-        local_result=$(speedtest-cli --simple 2>/dev/null)
+        local_result=$(run_speedtest "")
         local ret=$?
         if [ $ret -eq 0 ]; then
-            local_dl=$(echo "$local_result" | grep -i "^Download:" | sed -E 's/.*Download:[[:space:]]*([0-9.]+).*/\1/')
-            local_ul=$(echo "$local_result" | grep -i "^Upload:" | sed -E 's/.*Upload:[[:space:]]*([0-9.]+).*/\1/')
-            local_server=$(echo "$local_result" | grep "Server:" | sed -E 's/Server:[[:space:]]*//')
+            local_dl=$(echo "$local_result" | awk '{print $1}')
+            local_ul=$(echo "$local_result" | awk '{print $2}')
+            local_server=$(echo "$local_result" | cut -d' ' -f3-)
             [ -z "$local_server" ] && local_server="自动选择节点"
             echo "$local_dl $local_ul $local_server" > "$LOCAL_CACHE_FILE"
             evaluate_speed "本地" "$local_dl" "$local_ul" "$local_server"
