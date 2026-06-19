@@ -241,13 +241,10 @@ check_deps() {
     fi
 
     if [ "$all_deps_ok" = true ]; then
-        echo -e "${GREEN}检测到所有依赖已安装，跳过安装步骤。${NC}"
-        read -p "如需强制重装依赖，请输入 r 后回车；直接回车进入菜单: " force_reinstall
-        if [[ "$force_reinstall" != "r" && "$force_reinstall" != "R" ]]; then
-            touch "$DEPS_INSTALLED_FLAG"
-            return 0
-        fi
-        echo -e "${YELLOW}强制重新安装依赖...${NC}"
+        echo -e "${GREEN}检测到所有依赖已安装，直接进入菜单...${NC}"
+        sleep 1
+        touch "$DEPS_INSTALLED_FLAG"
+        return 0
     fi
 
     echo -e "${YELLOW}首次运行或需要更新，安装/重装必要工具...${NC}"
