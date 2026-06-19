@@ -163,6 +163,16 @@ get_id_from_remote() {
     return 1
 }
 
+# ---------- 获取同区域备用节点ID ----------
+get_fallback_id() {
+    local name="$1"
+    [ ! -f "$REMOTE_SERVERS_FILE" ] && return 1
+    # 从远程列表中找同区域其他节点的ID（排除当前节点）
+    local id=$(grep -v "\"$name\"" "$REMOTE_SERVERS_FILE" 2>/dev/null | grep '"id"' | head -1 | sed -E 's/.*"id"[[:space:]]*:[[:space:]]*"([0-9]+)".*/\1/')
+    [ -n "$id" ] && { echo "$id"; return 0; }
+    return 1
+}
+
 # ---------- 获取节点 ID ----------
 get_node_id() {
     local city="$1" isp="$2"
@@ -562,15 +572,33 @@ menu_speedtest() {
     echo -e "${YELLOW}使用节点 ID: $id (${desc})${NC}"
     local cn_result=$(run_speedtest "$id")
     local ret=$?
-    if [ $ret -eq 2 ]; then
-        read -p "按回车返回..."
-        return
-    elif [ $ret -ne 0 ]; then
+
+    # 如果测速失败，尝试同区域其他节点
+    if [ $ret -ne 0 ]; then
+        if [ $ret -eq 2 ]; then
+            read -p "按回车返回..."
+            return
+        fi
+        echo -e "${YELLOW}当前节点失效，尝试同区域其他节点...${NC}"
+        local fallback_id=$(get_fallback_id "$desc")
+        if [ -n "$fallback_id" ] && [ "$fallback_id" != "$id" ]; then
+            echo -e "${YELLOW}切换到备用节点 ID: $fallback_id${NC}"
+            cn_result=$(run_speedtest "$fallback_id")
+            ret=$?
+            if [ $ret -eq 0 ]; then
+                id="$fallback_id"
+                desc="${desc}(备用)"
+            fi
+        fi
+    fi
+
+    if [ $ret -ne 0 ]; then
         echo -e "${RED}国内测速失败，可能节点不可用或网络问题。${NC}"
         echo -e "${YELLOW}建议稍后重试或选择其他节点。${NC}"
         read -p "按回车返回..."
         return
     fi
+
     cn_dl=$(echo "$cn_result" | awk '{print $1}')
     cn_ul=$(echo "$cn_result" | awk '{print $2}')
     cn_server=$(echo "$cn_result" | cut -d' ' -f3-)
