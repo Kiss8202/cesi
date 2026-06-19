@@ -352,19 +352,19 @@ declare -A REGION_NODES=(
 
 # ---------- 选择国内区域节点 ----------
 select_cn_node() {
-    echo ""
-    echo -e "${BLUE}========================================${NC}"
-    echo -e "${GREEN}🗺️  选择国内测速区域${NC}"
-    echo -e "${BLUE}========================================${NC}"
-    echo "  1) 东北"
-    echo "  2) 华北"
-    echo "  3) 华东"
-    echo "  4) 华南"
-    echo "  5) 华中"
-    echo "  6) 西南"
-    echo "  7) 西北"
-    echo "  8) 手动输入城市和运营商"
-    echo "  0) 返回"
+    echo "" >&2
+    echo -e "${BLUE}========================================${NC}" >&2
+    echo -e "${GREEN}🗺️  选择国内测速区域${NC}" >&2
+    echo -e "${BLUE}========================================${NC}" >&2
+    echo "  1) 东北" >&2
+    echo "  2) 华北" >&2
+    echo "  3) 华东" >&2
+    echo "  4) 华南" >&2
+    echo "  5) 华中" >&2
+    echo "  6) 西南" >&2
+    echo "  7) 西北" >&2
+    echo "  8) 手动输入城市和运营商" >&2
+    echo "  0) 返回" >&2
     read -p "请选择区域 [0-8] (默认1): " region_opt
     region_opt=${region_opt:-1}
 
@@ -389,8 +389,8 @@ select_cn_node() {
             fi
             return
             ;;
-        0) echo ""; return ;;
-        *) echo ""; return ;;
+        0) echo "" >&2; return ;;
+        *) echo "" >&2; return ;;
     esac
 
     # 收集该区域节点
@@ -402,30 +402,30 @@ select_cn_node() {
     done
 
     if [ ${#nodes[@]} -eq 0 ]; then
-        echo -e "${RED}该区域暂无预置节点${NC}"
-        echo ""
+        echo -e "${RED}该区域暂无预置节点${NC}" >&2
+        echo "" >&2
         return
     fi
 
-    echo ""
-    echo -e "${BLUE}========================================${NC}"
-    echo -e "${GREEN}📍 ${region_key}区域节点${NC}"
-    echo -e "${BLUE}========================================${NC}"
+    echo "" >&2
+    echo -e "${BLUE}========================================${NC}" >&2
+    echo -e "${GREEN}📍 ${region_key}区域节点${NC}" >&2
+    echo -e "${BLUE}========================================${NC}" >&2
     local i=1
     local node_info
     for node_info in "${nodes[@]}"; do
         local name=$(echo "$node_info" | awk '{for(i=3;i<=NF;i++) printf $i" "; print ""}')
-        echo "  $i) $name"
+        echo "  $i) $name" >&2
         i=$((i+1))
     done
-    echo "  0) 返回"
+    echo "  0) 返回" >&2
     read -p "请选择节点 [0-$((i-1))] (默认1): " node_opt
     node_opt=${node_opt:-1}
-    [ "$node_opt" == "0" ] && { echo ""; return; }
+    [ "$node_opt" == "0" ] && { echo "" >&2; return; }
 
     if ! [[ "$node_opt" =~ ^[0-9]+$ ]] || [ "$node_opt" -lt 1 ] || [ "$node_opt" -gt $((i-1)) ]; then
-        echo -e "${RED}无效选择${NC}"
-        echo ""
+        echo -e "${RED}无效选择${NC}" >&2
+        echo "" >&2
         return
     fi
 
