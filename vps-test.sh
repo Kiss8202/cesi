@@ -66,7 +66,11 @@ evaluate_speed() {
     if [ -n "$server_info" ]; then
         echo -e "📌 测速节点: ${server_info}"
     fi
-    echo -e "下载速度: ${download} Mbps  |  上传速度: ${upload} Mbps"
+    if [ -n "$upload" ] && [ "$upload" != "0" ]; then
+        echo -e "下载速度: ${download} Mbps  |  上传速度: ${upload} Mbps"
+    else
+        echo -e "下载速度: ${download} Mbps  |  上传速度: 未测试"
+    fi
     if [[ -z "$download" || "$download" == "0" ]]; then
         echo -e "${RED}❌ 无法获取有效速度数据${NC}"
     elif (( $(echo "$download > 500" | bc -l 2>/dev/null) )); then
@@ -309,6 +313,8 @@ declare -A SPEEDTEST_URLS=(
     ["东北_大连联通"]="大连联通 http://speedtest.dldx.singlenet.cn:8080/speedtest/random4000x4000.jpg"
     ["东北_长春联通"]="长春联通 http://speedtest.ccdx.singlenet.cn:8080/speedtest/random4000x4000.jpg"
     ["东北_哈尔滨联通"]="哈尔滨联通 http://speedtest.hrbdx.singlenet.cn:8080/speedtest/random4000x4000.jpg"
+    ["东北_锦州联通"]="锦州联通 http://speedtest.sydx.singlenet.cn:8080/speedtest/random4000x4000.jpg"
+    ["东北_锦州电信"]="锦州电信 http://speedtest.sydx.singlenet.cn:8080/speedtest/random4000x4000.jpg"
     ["华北_北京联通"]="北京联通 http://speedtest.bjunicom.com.cn:8080/speedtest/random4000x4000.jpg"
     ["华北_北京电信"]="北京电信 http://speedtest.bjtelecom.net:8080/speedtest/random4000x4000.jpg"
     ["华北_北京移动"]="北京移动 http://speedtest.bjmcc.net:8080/speedtest/random4000x4000.jpg"
@@ -336,6 +342,8 @@ declare -A REGION_NODES=(
     ["东北_4"]="harbin china unicom 哈尔滨联通"
     ["东北_5"]="shenyang china telecom 沈阳电信"
     ["东北_6"]="shenyang china mobile 沈阳移动"
+    ["东北_7"]="jinzhou china unicom 锦州联通"
+    ["东北_8"]="jinzhou china telecom 锦州电信"
     ["华北_1"]="beijing china unicom 北京联通"
     ["华北_2"]="beijing china telecom 北京电信"
     ["华北_3"]="beijing china mobile 北京移动"
@@ -553,23 +561,27 @@ menu_speedtest() {
     if [[ "$mode" == curl:* ]]; then
         local url="${mode#curl:}"
         echo -e "${YELLOW}使用 curl 下载测速: $desc${NC}"
-        echo -e "${YELLOW}正在下载测试文件...${NC}"
-        local tmpfile="/tmp/cn_speedtest_$$.bin"
-        local start_time=$(date +%s.%N)
-        curl -o "$tmpfile" -L --max-time 30 -s "$url" 2>/dev/null
-        local curl_ret=$?
-        local end_time=$(date +%s.%N)
-        rm -f "$tmpfile"
-        if [ $curl_ret -ne 0 ]; then
+
+        # 下载 10 次取平均，避免单次 10MB 文件测不准高速带宽
+        local total_speed=0
+        local count=0
+        echo -e "${YELLOW}正在下载测试文件 (10次取平均)...${NC}"
+        for i in $(seq 1 10); do
+            local speed=$(curl -o /dev/null -s -w "%{speed_download}" --connect-timeout 10 "$url" | tr -d '\n')
+            if [ -n "$speed" ] && [ "$speed" != "0" ] && [ "$speed" != "0.000" ]; then
+                local speed_mbps=$(echo "scale=2; $speed * 8 / 1000000" | bc)
+                total_speed=$(echo "$total_speed + $speed_mbps" | bc)
+                count=$((count + 1))
+            fi
+        done
+
+        if [ $count -gt 0 ]; then
+            cn_dl=$(echo "scale=2; $total_speed / $count" | bc)
+            echo -e "${GREEN}平均下载速度: ${cn_dl} Mbps (${count}次有效)${NC}"
+        else
             echo -e "${RED}下载测速失败，可能URL不可用或网络问题。${NC}"
             read -p "按回车返回..."
             return
-        fi
-        local duration=$(echo "$end_time - $start_time" | bc)
-        if (( $(echo "$duration > 0" | bc -l) )); then
-            # 文件大小约 10MB (random4000x4000.jpg)
-            local file_size_mb=10
-            cn_dl=$(echo "scale=2; $file_size_mb * 8 / $duration" | bc)
         fi
         cn_ul="0"
         evaluate_speed "国内下载" "$cn_dl" "$cn_ul" "$desc"
