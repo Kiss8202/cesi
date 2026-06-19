@@ -134,18 +134,20 @@ run_speedtest() {
 get_node_id() {
     local city="$1" isp="$2"
     local id=""
+    # 先尝试从 speedtest -L 实时获取中国节点
     for cmd in "--servers" "-L"; do
-        id=$(speedtest $cmd 2>/dev/null | grep -i "$city" | grep -i "$isp" | head -1 | awk '{print $1}' | sed 's/[^0-9]//g')
+        id=$(speedtest $cmd 2>/dev/null | grep -i "china" | grep -i "$city" | grep -i "$isp" | head -1 | awk '{print $1}' | sed 's/[^0-9]//g')
         [ -n "$id" ] && { echo "$id"; return 0; }
     done
     for cmd in "--servers" "-L"; do
-        id=$(speedtest $cmd 2>/dev/null | grep -i "$city" | head -1 | awk '{print $1}' | sed 's/[^0-9]//g')
+        id=$(speedtest $cmd 2>/dev/null | grep -i "china" | grep -i "$city" | head -1 | awk '{print $1}' | sed 's/[^0-9]//g')
         [ -n "$id" ] && { echo "$id"; return 0; }
     done
     for cmd in "--servers" "-L"; do
-        id=$(speedtest $cmd 2>/dev/null | grep -i "$isp" | head -1 | awk '{print $1}' | sed 's/[^0-9]//g')
+        id=$(speedtest $cmd 2>/dev/null | grep -i "china" | grep -i "$isp" | head -1 | awk '{print $1}' | sed 's/[^0-9]//g')
         [ -n "$id" ] && { echo "$id"; return 0; }
     done
+    # fallback 到预置ID
     id=$(get_predefined_id "$city" "$isp")
     [ -n "$id" ] && { echo "$id"; return 0; }
     return 1
@@ -302,31 +304,32 @@ parse_mtr() {
 
 # ---------- 国内区域节点数据 ----------
 # 格式: 城市英文名 运营商关键字 显示名称 speedtest节点ID(可选)
+# 节点ID通过 speedtest -L 获取，如果预置ID失效会自动尝试从列表获取
 declare -A REGION_NODES=(
-    ["东北_1"]="shenyang china unicom 沈阳联通 17344"
-    ["东北_2"]="dalian china unicom 大连联通 1536"
+    ["东北_1"]="shenyang china unicom 沈阳联通"
+    ["东北_2"]="dalian china unicom 大连联通"
     ["东北_3"]="changchun china unicom 长春联通"
     ["东北_4"]="harbin china unicom 哈尔滨联通"
     ["东北_5"]="shenyang china telecom 沈阳电信"
     ["东北_6"]="shenyang china mobile 沈阳移动"
-    ["华北_1"]="beijing china unicom 北京联通 5145"
-    ["华北_2"]="beijing china telecom 北京电信 18472"
-    ["华北_3"]="beijing china mobile 北京移动 18475"
+    ["华北_1"]="beijing china unicom 北京联通"
+    ["华北_2"]="beijing china telecom 北京电信"
+    ["华北_3"]="beijing china mobile 北京移动"
     ["华北_4"]="tianjin china unicom 天津联通"
     ["华北_5"]="tianjin china telecom 天津电信"
     ["华北_6"]="shijiazhuang china unicom 石家庄联通"
     ["华北_7"]="taiyuan china unicom 太原联通"
-    ["华东_1"]="shanghai china unicom 上海联通 5083"
-    ["华东_2"]="shanghai china telecom 上海电信 18471"
-    ["华东_3"]="shanghai china mobile 上海移动 18474"
+    ["华东_1"]="shanghai china unicom 上海联通"
+    ["华东_2"]="shanghai china telecom 上海电信"
+    ["华东_3"]="shanghai china mobile 上海移动"
     ["华东_4"]="hangzhou china unicom 杭州联通"
     ["华东_5"]="hangzhou china telecom 杭州电信"
     ["华东_6"]="nanjing china unicom 南京联通"
     ["华东_7"]="nanjing china telecom 南京电信"
     ["华东_8"]="suzhou china unicom 苏州联通"
-    ["华南_1"]="guangzhou china unicom 广州联通 4624"
-    ["华南_2"]="guangzhou china telecom 广州电信 18470"
-    ["华南_3"]="guangzhou china mobile 广州移动 18473"
+    ["华南_1"]="guangzhou china unicom 广州联通"
+    ["华南_2"]="guangzhou china telecom 广州电信"
+    ["华南_3"]="guangzhou china mobile 广州移动"
     ["华南_4"]="shenzhen china unicom 深圳联通"
     ["华南_5"]="shenzhen china telecom 深圳电信"
     ["华南_6"]="fuzhou china unicom 福州联通"
@@ -429,21 +432,16 @@ select_cn_node() {
     local city=$(echo "$selected" | awk '{print $1}')
     local isp=$(echo "$selected" | awk '{print $2" "$3}')
     local name=$(echo "$selected" | awk '{print $4}')
-    local pre_id=$(echo "$selected" | awk '{print $5}')
 
-    # 如果预置ID是纯数字则直接使用，否则通过get_node_id获取
-    local id=""
-    if [[ "$pre_id" =~ ^[0-9]+$ ]]; then
-        id="$pre_id"
-    else
-        id=$(get_node_id "$city" "$isp")
+    # 优先通过 speedtest -L 实时获取节点ID
+    local id=$(get_node_id "$city" "$isp")
+    if [ -z "$id" ]; then
+        echo -e "${RED}无法获取 ${name} 的有效节点ID，请检查网络或更换节点。${NC}" >&2
+        echo "" >&2
+        return
     fi
 
-    if [ -n "$id" ]; then
-        echo "$id $name"
-    else
-        echo ""
-    fi
+    echo "$id $name"
 }
 
 # ---------- 菜单1：测速 ----------
