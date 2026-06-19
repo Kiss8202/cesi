@@ -218,6 +218,7 @@ get_target() {
 
 # ---------- 依赖检查 ----------
 check_deps() {
+    # 如果已有标记且 speedtest 可用，直接跳过
     if [ -f "$DEPS_INSTALLED_FLAG" ] && command -v speedtest &>/dev/null; then
         if speedtest -L 2>&1 | head -1 | grep -q "speedtest"; then
             return 0
@@ -225,6 +226,28 @@ check_deps() {
             echo -e "${YELLOW}当前 speedtest 版本不支持列表查询，重新安装...${NC}"
             rm -f "$DEPS_INSTALLED_FLAG"
         fi
+    fi
+
+    # 检查核心依赖是否已存在
+    local all_deps_ok=true
+    for dep in curl mtr traceroute bc speedtest; do
+        if ! command -v $dep &>/dev/null; then
+            all_deps_ok=false
+            break
+        fi
+    done
+    if ! command -v nslookup &>/dev/null && ! command -v dig &>/dev/null; then
+        all_deps_ok=false
+    fi
+
+    if [ "$all_deps_ok" = true ]; then
+        echo -e "${GREEN}检测到所有依赖已安装，跳过安装步骤。${NC}"
+        read -p "如需强制重装依赖，请输入 r 后回车；直接回车进入菜单: " force_reinstall
+        if [[ "$force_reinstall" != "r" && "$force_reinstall" != "R" ]]; then
+            touch "$DEPS_INSTALLED_FLAG"
+            return 0
+        fi
+        echo -e "${YELLOW}强制重新安装依赖...${NC}"
     fi
 
     echo -e "${YELLOW}首次运行或需要更新，安装/重装必要工具...${NC}"
@@ -585,10 +608,11 @@ main_menu() {
     echo "5) 综合测试 (测速+MTR+路由)"
     echo "6) 卸载脚本"
     echo "7) 退出"
+    echo -e "${YELLOW}提示: 输入 cs 可直接进入带宽测速${NC}"
     echo -e "${BLUE}========================================${NC}"
     read -p "请选择 [1-7]: " choice
     case $choice in
-        1) menu_speedtest ;;
+        1|cs|CS) menu_speedtest ;;
         2) menu_mtr ;;
         3) menu_traceroute ;;
         4) menu_ping ;;
