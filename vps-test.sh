@@ -15,19 +15,12 @@ LOCAL_CACHE_FILE="/tmp/local_speed_result.txt"
 DEPS_INSTALLED_FLAG="/tmp/vps_test_deps_installed"
 
 # ---------- 预置常用节点 ID ----------
+# 注：以下 ID 需与 speedtest-cli --list 实际可获取的中国节点保持一致
 get_predefined_id() {
     case "$1_$2" in
-        "beijing_china unicom") echo "5145" ;;
-        "shanghai_china unicom") echo "5083" ;;
-        "guangzhou_china unicom") echo "4624" ;;
-        "shenyang_china unicom") echo "17344" ;;
-        "dalian_china unicom") echo "1536" ;;
-        "beijing_china mobile") echo "18475" ;;
-        "shanghai_china mobile") echo "18474" ;;
-        "guangzhou_china mobile") echo "18473" ;;
-        "beijing_china telecom") echo "18472" ;;
-        "shanghai_china telecom") echo "18471" ;;
-        "guangzhou_china telecom") echo "18470" ;;
+        "beijing_china unicom") echo "43752" ;;
+        "shanghai_china unicom") echo "24447" ;;
+        "suzhou_china telecom") echo "5396" ;;
         *) return 1 ;;
     esac
 }
@@ -109,7 +102,7 @@ evaluate_combined() {
 run_speedtest() {
     local id="$1"
     local output_file="/tmp/speedtest_output.txt"
-    local cmd="speedtest-cli --simple --format=csv"
+    local cmd="speedtest-cli --simple"
     [ -n "$id" ] && cmd="$cmd --server $id"
     $cmd > "$output_file" 2>&1
     local ret=$?
@@ -125,16 +118,16 @@ run_speedtest() {
         rm -f "$output_file"
         return 1
     fi
-    # Python speedtest-cli --simple 输出格式: Ping,Download,Upload
-    # 或 --format=csv: "Server ID,Sponsor,Server Name,Timestamp,Distance,Ping,Download,Upload"
-    local download=$(tail -1 "$output_file" | awk -F',' '{print $8}' | sed 's/"//g')
-    local upload=$(tail -1 "$output_file" | awk -F',' '{print $9}' | sed 's/"//g')
-    local server=$(tail -1 "$output_file" | awk -F',' '{print $3}' | sed 's/"//g')
-    # 如果 csv 解析失败，尝试 simple 格式
-    if [ -z "$download" ] || [ "$download" == "Upload" ]; then
-        download=$(grep -i "Download:" "$output_file" | sed -E 's/.*Download:[[:space:]]*([0-9.]+).*/\1/')
-        upload=$(grep -i "Upload:" "$output_file" | sed -E 's/.*Upload:[[:space:]]*([0-9.]+).*/\1/')
-        server="未知节点"
+    # Python speedtest-cli --simple 输出格式:
+    # Ping: 24.532 ms
+    # Download: 94.26 Mbit/s
+    # Upload: 56.78 Mbit/s
+    local download=$(grep -i "^Download:" "$output_file" | sed -E 's/.*Download:[[:space:]]*([0-9.]+).*/\1/')
+    local upload=$(grep -i "^Upload:" "$output_file" | sed -E 's/.*Upload:[[:space:]]*([0-9.]+).*/\1/')
+    local server="未知节点"
+    # 尝试从输出中提取服务器信息（share 链接或 Server: 行）
+    if grep -q "Server:" "$output_file"; then
+        server=$(grep "Server:" "$output_file" | sed -E 's/Server:[[:space:]]*//')
     fi
     [ -z "$server" ] && server="未知节点"
     rm -f "$output_file"
@@ -207,11 +200,9 @@ show_china_nodes() {
     fi
     if [ -z "$nodes" ]; then
         echo -e "${RED}无法获取列表，使用预置常用节点：${NC}"
-        echo "  5145 - 北京联通"
-        echo "  5083 - 上海联通"
-        echo "  4624 - 广州联通"
-        echo "  17344 - 沈阳联通"
-        echo "  1536 - 大连联通"
+        echo "  43752 - 北京联通 (BJ Unicom)"
+        echo "  24447 - 上海联通 (China Unicom 5G)"
+        echo "   5396 - 苏州电信 (China Telecom JiangSu 5G)"
         return 1
     fi
     echo -e "${GREEN}可用中国节点（部分）：${NC}"
