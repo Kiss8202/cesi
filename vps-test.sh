@@ -105,17 +105,17 @@ evaluate_combined() {
     echo -e "${BLUE}========================================${NC}"
 }
 
-# ---------- 运行 Speedtest（含限流检测） ----------
+# ---------- 运行 Speedtest（Python speedtest-cli 版） ----------
 run_speedtest() {
     local id="$1"
     local output_file="/tmp/speedtest_output.txt"
-    local cmd="speedtest"
-    [ -n "$id" ] && cmd="$cmd -s $id"
+    local cmd="speedtest-cli --simple --format=csv"
+    [ -n "$id" ] && cmd="$cmd --server $id"
     $cmd > "$output_file" 2>&1
     local ret=$?
     if [ $ret -ne 0 ] || [ ! -s "$output_file" ]; then
         if grep -qi "Too many requests" "$output_file"; then
-            echo -e "${RED}⛔ Speedtest 官方限流，请等待 5 分钟后再试。${NC}" >&2
+            echo -e "${RED}⛔ Speedtest 限流，请等待 5 分钟后再试。${NC}" >&2
             echo -e "${YELLOW}你也可以选择其他节点或稍后重试。${NC}" >&2
             rm -f "$output_file"
             return 2
@@ -125,9 +125,17 @@ run_speedtest() {
         rm -f "$output_file"
         return 1
     fi
-    local download=$(grep -i "Download:" "$output_file" | tail -1 | sed -E 's/.*Download:[[:space:]]*([0-9.]+).*/\1/')
-    local upload=$(grep -i "Upload:" "$output_file" | tail -1 | sed -E 's/.*Upload:[[:space:]]*([0-9.]+).*/\1/')
-    local server=$(grep -i "Server:" "$output_file" | head -1 | sed -E 's/^[[:space:]]*Server:[[:space:]]*//')
+    # Python speedtest-cli --simple 输出格式: Ping,Download,Upload
+    # 或 --format=csv: "Server ID,Sponsor,Server Name,Timestamp,Distance,Ping,Download,Upload"
+    local download=$(tail -1 "$output_file" | awk -F',' '{print $8}' | sed 's/"//g')
+    local upload=$(tail -1 "$output_file" | awk -F',' '{print $9}' | sed 's/"//g')
+    local server=$(tail -1 "$output_file" | awk -F',' '{print $3}' | sed 's/"//g')
+    # 如果 csv 解析失败，尝试 simple 格式
+    if [ -z "$download" ] || [ "$download" == "Upload" ]; then
+        download=$(grep -i "Download:" "$output_file" | sed -E 's/.*Download:[[:space:]]*([0-9.]+).*/\1/')
+        upload=$(grep -i "Upload:" "$output_file" | sed -E 's/.*Upload:[[:space:]]*([0-9.]+).*/\1/')
+        server="未知节点"
+    fi
     [ -z "$server" ] && server="未知节点"
     rm -f "$output_file"
     echo "$download $upload $server"
@@ -177,19 +185,13 @@ get_fallback_id() {
 get_node_id() {
     local city="$1" isp="$2"
     local id=""
-    # 先尝试从 speedtest -L 实时获取中国节点
-    for cmd in "--servers" "-L"; do
-        id=$(speedtest $cmd 2>/dev/null | grep -i "china" | grep -i "$city" | grep -i "$isp" | head -1 | awk '{print $1}' | sed 's/[^0-9]//g')
+    # 使用 Python speedtest-cli --list 获取节点列表（不受地理限制）
+    if command -v speedtest-cli &>/dev/null; then
+        id=$(speedtest-cli --list 2>/dev/null | grep -i "china" | grep -i "$city" | grep -i "$isp" | head -1 | sed -E 's/^([0-9]+)\).*/\1/')
         [ -n "$id" ] && { echo "$id"; return 0; }
-    done
-    for cmd in "--servers" "-L"; do
-        id=$(speedtest $cmd 2>/dev/null | grep -i "china" | grep -i "$city" | head -1 | awk '{print $1}' | sed 's/[^0-9]//g')
+        id=$(speedtest-cli --list 2>/dev/null | grep -i "$city" | grep -i "$isp" | head -1 | sed -E 's/^([0-9]+)\).*/\1/')
         [ -n "$id" ] && { echo "$id"; return 0; }
-    done
-    for cmd in "--servers" "-L"; do
-        id=$(speedtest $cmd 2>/dev/null | grep -i "china" | grep -i "$isp" | head -1 | awk '{print $1}' | sed 's/[^0-9]//g')
-        [ -n "$id" ] && { echo "$id"; return 0; }
-    done
+    fi
     # fallback 到预置ID
     id=$(get_predefined_id "$city" "$isp")
     [ -n "$id" ] && { echo "$id"; return 0; }
@@ -200,10 +202,9 @@ get_node_id() {
 show_china_nodes() {
     echo -e "${YELLOW}正在获取可用中国节点列表...${NC}"
     local nodes=""
-    for cmd in "--servers" "-L"; do
-        nodes=$(speedtest $cmd 2>/dev/null | grep -i "china" | head -15)
-        [ -n "$nodes" ] && break
-    done
+    if command -v speedtest-cli &>/dev/null; then
+        nodes=$(speedtest-cli --list 2>/dev/null | grep -i "china" | head -15)
+    fi
     if [ -z "$nodes" ]; then
         echo -e "${RED}无法获取列表，使用预置常用节点：${NC}"
         echo "  5145 - 北京联通"
@@ -262,19 +263,14 @@ get_target() {
 
 # ---------- 依赖检查 ----------
 check_deps() {
-    # 如果已有标记且 speedtest 可用，直接跳过
-    if [ -f "$DEPS_INSTALLED_FLAG" ] && command -v speedtest &>/dev/null; then
-        if speedtest -L 2>&1 | head -1 | grep -q "speedtest"; then
-            return 0
-        else
-            echo -e "${YELLOW}当前 speedtest 版本不支持列表查询，重新安装...${NC}"
-            rm -f "$DEPS_INSTALLED_FLAG"
-        fi
+    # 如果已有标记且 speedtest-cli 可用，直接跳过
+    if [ -f "$DEPS_INSTALLED_FLAG" ] && command -v speedtest-cli &>/dev/null; then
+        return 0
     fi
 
     # 检查核心依赖是否已存在
     local all_deps_ok=true
-    for dep in curl mtr traceroute bc speedtest; do
+    for dep in curl mtr traceroute bc speedtest-cli; do
         if ! command -v $dep &>/dev/null; then
             all_deps_ok=false
             break
@@ -292,7 +288,7 @@ check_deps() {
     fi
 
     echo -e "${YELLOW}首次运行或需要更新，安装/重装必要工具...${NC}"
-    for dep in curl mtr traceroute bc; do
+    for dep in curl mtr traceroute bc python3 python3-pip; do
         if ! command -v $dep &>/dev/null; then
             echo -e "安装 $dep ..."
             apt update -y && apt install -y $dep >/dev/null 2>&1 || yum install -y $dep >/dev/null 2>&1
@@ -307,26 +303,25 @@ check_deps() {
         fi
     fi
 
-    if command -v speedtest &>/dev/null; then
-        if ! speedtest -L &>/dev/null; then
-            echo -e "卸载旧版 speedtest ..."
-            if [[ -f /etc/debian_version ]]; then
-                apt remove -y speedtest-cli >/dev/null 2>&1
-            else
-                yum remove -y speedtest-cli >/dev/null 2>&1
-            fi
-        fi
-    fi
-    if [[ -f /etc/debian_version ]]; then
-        curl -s https://packagecloud.io/install/repositories/ookla/speedtest-cli/script.deb.sh | bash >/dev/null 2>&1
-        apt install -y speedtest >/dev/null 2>&1
-    else
-        curl -s https://packagecloud.io/install/repositories/ookla/speedtest-cli/script.rpm.sh | bash >/dev/null 2>&1
-        yum install -y speedtest >/dev/null 2>&1
+    # 安装 speedtest-cli (Python 第三方版，支持海外指定国内节点)
+    if ! command -v speedtest-cli &>/dev/null; then
+        echo -e "安装 speedtest-cli (Python 版)..."
+        pip3 install speedtest-cli >/dev/null 2>&1 || pip install speedtest-cli >/dev/null 2>&1
     fi
 
-    if ! command -v speedtest &>/dev/null; then
-        echo -e "${RED}Speedtest 安装失败，请手动安装。${NC}"
+    # 卸载 Ookla 官方版（如果存在），避免冲突
+    if command -v speedtest &>/dev/null && ! command -v speedtest-cli &>/dev/null; then
+        echo -e "${YELLOW}检测到 Ookla 官方版 speedtest，卸载并改用 Python 版...${NC}"
+        if [[ -f /etc/debian_version ]]; then
+            apt remove -y speedtest >/dev/null 2>&1
+        else
+            yum remove -y speedtest >/dev/null 2>&1
+        fi
+        pip3 install speedtest-cli >/dev/null 2>&1 || pip install speedtest-cli >/dev/null 2>&1
+    fi
+
+    if ! command -v speedtest-cli &>/dev/null; then
+        echo -e "${RED}speedtest-cli 安装失败，请手动安装: pip3 install speedtest-cli${NC}"
         exit 1
     fi
     touch "$DEPS_INSTALLED_FLAG"
@@ -777,7 +772,7 @@ menu_uninstall() {
             sed -i '/# VPS test alias/d' ~/.bashrc
             sed -i "/alias cs='\/root\/vps-test.sh'/d" ~/.bashrc
         fi
-        rm -f /root/vps-test.sh /root/speedtest.log /tmp/test.bin /root/jp2ln.sh /tmp/local_speed_result.txt /tmp/vps_test_deps_installed
+        rm -f /root/vps-test.sh /root/speedtest.log /tmp/test.bin /root/jp2ln.sh /tmp/local_speed_result.txt /tmp/vps_test_deps_installed /tmp/vps_test_servers.json
         echo -e "${GREEN}✅ 已清理。${NC}"
         exit 0
     else
