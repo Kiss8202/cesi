@@ -1,1 +1,1 @@
-# cesicurl -L -o /root/vps-test.sh https://raw.githubusercontent.com/820224Kiss/cesu/main/vps-test.sh && chmod +x /root/vps-test.sh
+# cesicurl -L -o /root/vps-test.sh https://raw.githubusercontent.com/820224Kiss/cesi/main/vps-test.sh && chmod +x /root/vps-test.sh
