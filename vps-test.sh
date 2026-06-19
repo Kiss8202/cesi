@@ -1,4 +1,3 @@
-cat > /root/vps-test.sh << 'EOF'
 #!/bin/bash
 # ===================================================
 # VPS 网络质量交互测试脚本 (v20 - 完整版)
@@ -697,6 +696,11 @@ menu_uninstall() {
     echo "  - /root/jp2ln.sh (旧版测速脚本)"
     read -p "确认卸载？(y/n): " confirm
     if [[ "$confirm" == "y" || "$confirm" == "Y" ]]; then
+        # 清理 cs 别名
+        if [ -f ~/.bashrc ]; then
+            sed -i '/# VPS test alias/d' ~/.bashrc
+            sed -i "/alias cs='\/root\/vps-test.sh'/d" ~/.bashrc
+        fi
         rm -f /root/vps-test.sh /root/speedtest.log /tmp/test.bin /root/jp2ln.sh /tmp/local_speed_result.txt /tmp/vps_test_deps_installed
         echo -e "${GREEN}✅ 已清理。${NC}"
         exit 0
@@ -735,9 +739,20 @@ main_menu() {
     main_menu
 }
 
+# ---------- 安装 cs 别名 ----------
+install_alias() {
+    local script_path="/root/vps-test.sh"
+    if [ -f ~/.bashrc ]; then
+        if ! grep -q "alias cs='${script_path}'" ~/.bashrc; then
+            echo "" >> ~/.bashrc
+            echo "# VPS test alias" >> ~/.bashrc
+            echo "alias cs='${script_path}'" >> ~/.bashrc
+            echo -e "${GREEN}已添加 cs 快捷命令，重新登录或执行 source ~/.bashrc 后生效。${NC}"
+        fi
+    fi
+}
+
 # ---------- 启动 ----------
 check_deps
+install_alias
 main_menu
-EOF
-
-chmod +x /root/vps-test.sh
