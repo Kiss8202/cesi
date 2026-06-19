@@ -410,7 +410,7 @@ select_cn_node() {
     local i=1
     local node_info
     for node_info in "${nodes[@]}"; do
-        local name=$(echo "$node_info" | awk '{for(i=3;i<=NF;i++) printf $i" "; print ""}')
+        local name=$(echo "$node_info" | awk '{print $4}')
         echo "  $i) $name" >&2
         i=$((i+1))
     done
@@ -427,9 +427,9 @@ select_cn_node() {
 
     local selected="${nodes[$((node_opt-1))]}"
     local city=$(echo "$selected" | awk '{print $1}')
-    local isp=$(echo "$selected" | awk '{print $2}')
-    local name=$(echo "$selected" | awk '{for(i=3;i<NF;i++) printf $i" "; print $NF}')
-    local pre_id=$(echo "$selected" | awk '{print $NF}')
+    local isp=$(echo "$selected" | awk '{print $2" "$3}')
+    local name=$(echo "$selected" | awk '{print $4}')
+    local pre_id=$(echo "$selected" | awk '{print $5}')
 
     # 如果预置ID是纯数字则直接使用，否则通过get_node_id获取
     local id=""
