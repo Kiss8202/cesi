@@ -306,7 +306,10 @@ check_deps() {
     # 安装 speedtest-cli (Python 第三方版，支持海外指定国内节点)
     if ! command -v speedtest-cli &>/dev/null; then
         echo -e "安装 speedtest-cli (Python 版)..."
-        pip3 install speedtest-cli >/dev/null 2>&1 || pip install speedtest-cli >/dev/null 2>&1
+        pip3 install speedtest-cli --break-system-packages >/dev/null 2>&1 || \
+        pip install speedtest-cli --break-system-packages >/dev/null 2>&1 || \
+        pip3 install speedtest-cli >/dev/null 2>&1 || \
+        pip install speedtest-cli >/dev/null 2>&1
     fi
 
     # 卸载 Ookla 官方版（如果存在），避免冲突
@@ -317,7 +320,10 @@ check_deps() {
         else
             yum remove -y speedtest >/dev/null 2>&1
         fi
-        pip3 install speedtest-cli >/dev/null 2>&1 || pip install speedtest-cli >/dev/null 2>&1
+        pip3 install speedtest-cli --break-system-packages >/dev/null 2>&1 || \
+        pip install speedtest-cli --break-system-packages >/dev/null 2>&1 || \
+        pip3 install speedtest-cli >/dev/null 2>&1 || \
+        pip install speedtest-cli >/dev/null 2>&1
     fi
 
     if ! command -v speedtest-cli &>/dev/null; then
