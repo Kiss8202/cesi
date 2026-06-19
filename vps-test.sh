@@ -134,6 +134,34 @@ run_speedtest() {
     return 0
 }
 
+# ---------- 远程节点列表 ----------
+REMOTE_SERVERS_FILE="/tmp/vps_test_servers.json"
+REMOTE_SERVERS_URL="https://raw.githubusercontent.com/Kiss8202/cesi/main/servers.json"
+
+# ---------- 拉取远程节点列表 ----------
+fetch_remote_servers() {
+    echo -e "${YELLOW}正在获取最新节点列表...${NC}" >&2
+    curl -sL --connect-timeout 10 "$REMOTE_SERVERS_URL" -o "$REMOTE_SERVERS_FILE" 2>/dev/null
+    if [ -f "$REMOTE_SERVERS_FILE" ] && [ -s "$REMOTE_SERVERS_FILE" ]; then
+        if head -1 "$REMOTE_SERVERS_FILE" | grep -q "servers"; then
+            echo -e "${GREEN}节点列表获取成功。${NC}" >&2
+            return 0
+        fi
+    fi
+    echo -e "${YELLOW}无法获取远程列表，使用本地预置ID。${NC}" >&2
+    rm -f "$REMOTE_SERVERS_FILE"
+    return 1
+}
+
+# ---------- 从远程列表获取节点ID ----------
+get_id_from_remote() {
+    local region="$1" name="$2"
+    [ ! -f "$REMOTE_SERVERS_FILE" ] && return 1
+    local id=$(grep -A5 -B1 "\"$name\"" "$REMOTE_SERVERS_FILE" 2>/dev/null | grep '"id"' | head -1 | sed -E 's/.*"id"[[:space:]]*:[[:space:]]*"([0-9]+)".*/\1/')
+    [ -n "$id" ] && { echo "$id"; return 0; }
+    return 1
+}
+
 # ---------- 获取节点 ID ----------
 get_node_id() {
     local city="$1" isp="$2"
@@ -462,6 +490,13 @@ select_cn_node() {
 
     local selected="${nodes[$((node_opt-1))]}"
     local name=$(echo "$selected" | awk '{print $4}')
+
+    # 优先从远程列表获取 speedtest 节点ID
+    local remote_id=$(get_id_from_remote "$region_key" "$name")
+    if [ -n "$remote_id" ]; then
+        echo "speedtest:$remote_id $name"
+        return
+    fi
 
     # 查找对应测速URL
     local url_key=""
@@ -831,5 +866,6 @@ install_alias() {
 
 # ---------- 启动 ----------
 check_deps
+fetch_remote_servers
 install_alias
 main_menu

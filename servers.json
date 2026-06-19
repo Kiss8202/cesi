@@ -1,0 +1,63 @@
+{
+  "description": "国内 Speedtest 节点ID列表，由国内环境定期更新",
+  "last_updated": "2025-06-19",
+  "servers": {
+    "东北": {
+      "沈阳联通": {"id": "17344", "host": "shenyang", "isp": "china unicom"},
+      "大连联通": {"id": "1536", "host": "dalian", "isp": "china unicom"},
+      "长春联通": {"id": "6097", "host": "changchun", "isp": "china unicom"},
+      "哈尔滨联通": {"id": "5505", "host": "harbin", "isp": "china unicom"},
+      "沈阳电信": {"id": "17184", "host": "shenyang", "isp": "china telecom"},
+      "沈阳移动": {"id": "16145", "host": "shenyang", "isp": "china mobile"},
+      "锦州联通": {"id": "17344", "host": "shenyang", "isp": "china unicom"},
+      "锦州电信": {"id": "17184", "host": "shenyang", "isp": "china telecom"}
+    },
+    "华北": {
+      "北京联通": {"id": "5145", "host": "beijing", "isp": "china unicom"},
+      "北京电信": {"id": "27377", "host": "beijing", "isp": "china telecom"},
+      "北京移动": {"id": "25858", "host": "beijing", "isp": "china mobile"},
+      "天津联通": {"id": "5475", "host": "tianjin", "isp": "china unicom"},
+      "天津电信": {"id": "7508", "host": "tianjin", "isp": "china telecom"},
+      "石家庄联通": {"id": "5460", "host": "shijiazhuang", "isp": "china unicom"},
+      "太原联通": {"id": "5726", "host": "taiyuan", "isp": "china unicom"}
+    },
+    "华东": {
+      "上海联通": {"id": "5083", "host": "shanghai", "isp": "china unicom"},
+      "上海电信": {"id": "3633", "host": "shanghai", "isp": "china telecom"},
+      "上海移动": {"id": "25637", "host": "shanghai", "isp": "china mobile"},
+      "杭州电信": {"id": "7509", "host": "hangzhou", "isp": "china telecom"},
+      "南京电信": {"id": "13704", "host": "nanjing", "isp": "china telecom"},
+      "南京联通": {"id": "13705", "host": "nanjing", "isp": "china unicom"},
+      "苏州联通": {"id": "3663", "host": "suzhou", "isp": "china unicom"}
+    },
+    "华南": {
+      "广州联通": {"id": "3891", "host": "guangzhou", "isp": "china unicom"},
+      "广州电信": {"id": "27594", "host": "guangzhou", "isp": "china telecom"},
+      "广州移动": {"id": "6611", "host": "guangzhou", "isp": "china mobile"},
+      "深圳电信": {"id": "1536", "host": "shenzhen", "isp": "china telecom"},
+      "深圳联通": {"id": "10201", "host": "shenzhen", "isp": "china unicom"},
+      "福州联通": {"id": "4884", "host": "fuzhou", "isp": "china unicom"}
+    },
+    "华中": {
+      "武汉电信": {"id": "7509", "host": "wuhan", "isp": "china telecom"},
+      "武汉联通": {"id": "26678", "host": "wuhan", "isp": "china unicom"},
+      "长沙电信": {"id": "28225", "host": "changsha", "isp": "china telecom"},
+      "长沙联通": {"id": "4884", "host": "changsha", "isp": "china unicom"},
+      "郑州联通": {"id": "4590", "host": "zhengzhou", "isp": "china unicom"}
+    },
+    "西南": {
+      "成都电信": {"id": "2461", "host": "chengdu", "isp": "china telecom"},
+      "成都联通": {"id": "3558", "host": "chengdu", "isp": "china unicom"},
+      "成都移动": {"id": "24337", "host": "chengdu", "isp": "china mobile"},
+      "重庆电信": {"id": "5530", "host": "chongqing", "isp": "china telecom"},
+      "重庆联通": {"id": "5726", "host": "chongqing", "isp": "china unicom"},
+      "昆明联通": {"id": "5097", "host": "kunming", "isp": "china unicom"}
+    },
+    "西北": {
+      "西安电信": {"id": "5317", "host": "xian", "isp": "china telecom"},
+      "西安联通": {"id": "4863", "host": "xian", "isp": "china unicom"},
+      "兰州联通": {"id": "5152", "host": "lanzhou", "isp": "china unicom"},
+      "乌鲁木齐联通": {"id": "5505", "host": "urumqi", "isp": "china unicom"}
+    }
+  }
+}
