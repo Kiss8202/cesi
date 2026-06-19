@@ -136,15 +136,15 @@ get_node_id() {
     local city="$1" isp="$2"
     local id=""
     for cmd in "--servers" "-L"; do
-        id=$(speedtest $cmd 2>/dev/null | grep -i "$city" | grep -i "$isp" | head -1 | awk '{print $1}')
+        id=$(speedtest $cmd 2>/dev/null | grep -i "$city" | grep -i "$isp" | head -1 | awk '{print $1}' | sed 's/[^0-9]//g')
         [ -n "$id" ] && { echo "$id"; return 0; }
     done
     for cmd in "--servers" "-L"; do
-        id=$(speedtest $cmd 2>/dev/null | grep -i "$city" | head -1 | awk '{print $1}')
+        id=$(speedtest $cmd 2>/dev/null | grep -i "$city" | head -1 | awk '{print $1}' | sed 's/[^0-9]//g')
         [ -n "$id" ] && { echo "$id"; return 0; }
     done
     for cmd in "--servers" "-L"; do
-        id=$(speedtest $cmd 2>/dev/null | grep -i "$isp" | head -1 | awk '{print $1}')
+        id=$(speedtest $cmd 2>/dev/null | grep -i "$isp" | head -1 | awk '{print $1}' | sed 's/[^0-9]//g')
         [ -n "$id" ] && { echo "$id"; return 0; }
     done
     id=$(get_predefined_id "$city" "$isp")
@@ -170,7 +170,7 @@ show_china_nodes() {
         return 1
     fi
     echo -e "${GREEN}可用中国节点（部分）：${NC}"
-    echo "$nodes" | awk '{print "  " $1 " - " $2 " " $3 " " $4}'
+    echo "$nodes"
     return 0
 }
 
