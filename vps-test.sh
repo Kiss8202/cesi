@@ -16,11 +16,10 @@ DEPS_INSTALLED_FLAG="/tmp/vps_test_deps_installed"
 
 # ---------- 预置常用节点 ID ----------
 # 注：以下 ID 需与 speedtest-cli --list 实际可获取的中国节点保持一致
+# 当前海外环境实测：只有 24447 上海联通可用
 get_predefined_id() {
     case "$1_$2" in
-        "beijing_china unicom") echo "43752" ;;
         "shanghai_china unicom") echo "24447" ;;
-        "suzhou_china telecom") echo "5396" ;;
         *) return 1 ;;
     esac
 }
@@ -132,12 +131,15 @@ run_speedtest() {
     # Ping: 24.532 ms
     # Download: 94.26 Mbit/s
     # Upload: 56.78 Mbit/s
+    # 注意：--simple 模式不输出 Server: 行，需用 --share 或从错误信息中提取
     local download=$(grep -i "^Download:" "$output_file" | sed -E 's/.*Download:[[:space:]]*([0-9.]+).*/\1/')
     local upload=$(grep -i "^Upload:" "$output_file" | sed -E 's/.*Upload:[[:space:]]*([0-9.]+).*/\1/')
     local server="未知节点"
     # 尝试从输出中提取服务器信息（share 链接或 Server: 行）
     if grep -q "Server:" "$output_file"; then
         server=$(grep "Server:" "$output_file" | sed -E 's/Server:[[:space:]]*//')
+    elif grep -q "Hosted by" "$output_file"; then
+        server=$(grep "Hosted by" "$output_file" | sed -E 's/Hosted by //')
     fi
     [ -z "$server" ] && server="未知节点"
     rm -f "$output_file"
@@ -210,9 +212,7 @@ show_china_nodes() {
     fi
     if [ -z "$nodes" ]; then
         echo -e "${RED}无法获取列表，使用预置常用节点：${NC}"
-        echo "  43752 - 北京联通 (BJ Unicom)"
         echo "  24447 - 上海联通 (China Unicom 5G)"
-        echo "   5396 - 苏州电信 (China Telecom JiangSu 5G)"
         return 1
     fi
     echo -e "${GREEN}可用中国节点（部分）：${NC}"
@@ -358,49 +358,49 @@ declare -A SPEEDTEST_URLS=()
 # 注：海外VPS通过 speedtest-cli 只能连接到部分中国节点，
 #     以下标注了经测试海外可用的节点ID，未标注的会尝试speedtest-cli自动查找
 declare -A REGION_NODES=(
-    ["东北_1"]="shenyang china unicom 沈阳联通 17344"
-    ["东北_2"]="dalian china unicom 大连联通 1536"
-    ["东北_3"]="changchun china unicom 长春联通 6097"
-    ["东北_4"]="harbin china unicom 哈尔滨联通 5505"
-    ["东北_5"]="shenyang china telecom 沈阳电信 17184"
-    ["东北_6"]="shenyang china mobile 沈阳移动 16145"
-    ["东北_7"]="jinzhou china unicom 锦州联通 17344"
-    ["东北_8"]="jinzhou china telecom 锦州电信 17184"
-    ["华北_1"]="beijing china unicom 北京联通 43752"
-    ["华北_2"]="beijing china telecom 北京电信 27377"
-    ["华北_3"]="beijing china mobile 北京移动 25858"
-    ["华北_4"]="tianjin china unicom 天津联通 5475"
-    ["华北_5"]="tianjin china telecom 天津电信 7508"
-    ["华北_6"]="shijiazhuang china unicom 石家庄联通 5460"
-    ["华北_7"]="taiyuan china unicom 太原联通 5726"
+    ["东北_1"]="shenyang china unicom 沈阳联通"
+    ["东北_2"]="dalian china unicom 大连联通"
+    ["东北_3"]="changchun china unicom 长春联通"
+    ["东北_4"]="harbin china unicom 哈尔滨联通"
+    ["东北_5"]="shenyang china telecom 沈阳电信"
+    ["东北_6"]="shenyang china mobile 沈阳移动"
+    ["东北_7"]="jinzhou china unicom 锦州联通"
+    ["东北_8"]="jinzhou china telecom 锦州电信"
+    ["华北_1"]="beijing china unicom 北京联通"
+    ["华北_2"]="beijing china telecom 北京电信"
+    ["华北_3"]="beijing china mobile 北京移动"
+    ["华北_4"]="tianjin china unicom 天津联通"
+    ["华北_5"]="tianjin china telecom 天津电信"
+    ["华北_6"]="shijiazhuang china unicom 石家庄联通"
+    ["华北_7"]="taiyuan china unicom 太原联通"
     ["华东_1"]="shanghai china unicom 上海联通 24447"
-    ["华东_2"]="shanghai china telecom 上海电信 3633"
-    ["华东_3"]="shanghai china mobile 上海移动 25637"
-    ["华东_4"]="hangzhou china unicom 杭州联通 7509"
-    ["华东_5"]="hangzhou china telecom 杭州电信 7509"
-    ["华东_6"]="nanjing china unicom 南京联通 13705"
-    ["华东_7"]="nanjing china telecom 南京电信 13704"
-    ["华东_8"]="suzhou china telecom 苏州电信 5396"
-    ["华南_1"]="guangzhou china unicom 广州联通 3891"
-    ["华南_2"]="guangzhou china telecom 广州电信 27594"
-    ["华南_3"]="guangzhou china mobile 广州移动 6611"
-    ["华南_4"]="shenzhen china unicom 深圳联通 10201"
-    ["华南_5"]="shenzhen china telecom 深圳电信 1536"
-    ["华南_6"]="fuzhou china unicom 福州联通 4884"
-    ["华中_1"]="wuhan china unicom 武汉联通 26678"
-    ["华中_2"]="wuhan china telecom 武汉电信 7509"
-    ["华中_3"]="changsha china unicom 长沙联通 4884"
-    ["华中_4"]="zhengzhou china unicom 郑州联通 4590"
-    ["西南_1"]="chengdu china unicom 成都联通 3558"
-    ["西南_2"]="chengdu china telecom 成都电信 2461"
-    ["西南_3"]="chengdu china mobile 成都移动 24337"
-    ["西南_4"]="chongqing china unicom 重庆联通 5726"
-    ["西南_5"]="chongqing china telecom 重庆电信 5530"
-    ["西南_6"]="kunming china unicom 昆明联通 5097"
-    ["西北_1"]="xian china unicom 西安联通 4863"
-    ["西北_2"]="xian china telecom 西安电信 5317"
-    ["西北_3"]="lanzhou china unicom 兰州联通 5152"
-    ["西北_4"]="urumqi china unicom 乌鲁木齐联通 5505"
+    ["华东_2"]="shanghai china telecom 上海电信"
+    ["华东_3"]="shanghai china mobile 上海移动"
+    ["华东_4"]="hangzhou china unicom 杭州联通"
+    ["华东_5"]="hangzhou china telecom 杭州电信"
+    ["华东_6"]="nanjing china unicom 南京联通"
+    ["华东_7"]="nanjing china telecom 南京电信"
+    ["华东_8"]="suzhou china telecom 苏州电信"
+    ["华南_1"]="guangzhou china unicom 广州联通"
+    ["华南_2"]="guangzhou china telecom 广州电信"
+    ["华南_3"]="guangzhou china mobile 广州移动"
+    ["华南_4"]="shenzhen china unicom 深圳联通"
+    ["华南_5"]="shenzhen china telecom 深圳电信"
+    ["华南_6"]="fuzhou china unicom 福州联通"
+    ["华中_1"]="wuhan china unicom 武汉联通"
+    ["华中_2"]="wuhan china telecom 武汉电信"
+    ["华中_3"]="changsha china unicom 长沙联通"
+    ["华中_4"]="zhengzhou china unicom 郑州联通"
+    ["西南_1"]="chengdu china unicom 成都联通"
+    ["西南_2"]="chengdu china telecom 成都电信"
+    ["西南_3"]="chengdu china mobile 成都移动"
+    ["西南_4"]="chongqing china unicom 重庆联通"
+    ["西南_5"]="chongqing china telecom 重庆电信"
+    ["西南_6"]="kunming china unicom 昆明联通"
+    ["西北_1"]="xian china unicom 西安联通"
+    ["西北_2"]="xian china telecom 西安电信"
+    ["西北_3"]="lanzhou china unicom 兰州联通"
+    ["西北_4"]="urumqi china unicom 乌鲁木齐联通"
 )
 
 # ---------- 选择国内区域节点 ----------
@@ -499,8 +499,8 @@ select_cn_node() {
         return
     fi
 
-    # fallback：尝试本地预置ID
-    echo -e "${YELLOW}${name} 远程列表无ID，尝试本地获取...${NC}" >&2
+    # fallback：尝试 speedtest-cli --list 查找
+    echo -e "${YELLOW}${name} 无预置可用ID，尝试从 speedtest-cli 列表查找...${NC}" >&2
     local city=$(echo "$selected" | awk '{print $1}')
     local isp=$(echo "$selected" | awk '{print $2" "$3}')
     local id=$(get_node_id "$city" "$isp")
@@ -508,6 +508,7 @@ select_cn_node() {
         echo "speedtest:$id $name"
     else
         echo -e "${RED}无法获取 ${name} 的有效测速方式。${NC}" >&2
+        echo -e "${YELLOW}提示：海外VPS目前只能测上海联通(24447)，其他中国节点可能无法连接。${NC}" >&2
         echo "" >&2
         return
     fi
@@ -594,6 +595,24 @@ menu_speedtest() {
             [ -z "$local_server" ] && local_server="自动选择节点"
             echo "$local_dl $local_ul $local_server" > "$LOCAL_CACHE_FILE"
             evaluate_speed "本地" "$local_dl" "$local_ul" "$local_server"
+        fi
+    fi
+
+    # 如果本地测速结果仍异常，使用 iperf3 作为本地测速备用
+    if [ -z "$local_dl" ] || [ "$local_dl" = "0" ] || [ "$local_dl" = "0.0" ]; then
+        echo -e "${YELLOW}speedtest-cli 本地测速异常，尝试 iperf3 备用测速...${NC}"
+        if command -v iperf3 &>/dev/null; then
+            local iperf_result=$(iperf3 -c iperf.he.net -t 5 -J 2>/dev/null)
+            if [ -n "$iperf_result" ]; then
+                local_dl=$(echo "$iperf_result" | grep -o '"bits_per_second":[0-9.]*' | tail -1 | sed 's/.*://')
+                if [ -n "$local_dl" ]; then
+                    local_dl=$(echo "scale=2; $local_dl / 1000000" | bc)
+                    local_ul="未测试"
+                    local_server="iperf.he.net (备用)"
+                    echo "$local_dl $local_ul $local_server" > "$LOCAL_CACHE_FILE"
+                    evaluate_speed "本地" "$local_dl" "$local_ul" "$local_server"
+                fi
+            fi
         fi
     fi
 
