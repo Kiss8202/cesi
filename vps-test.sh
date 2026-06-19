@@ -304,13 +304,159 @@ parse_mtr() {
     echo "$avg"; echo "$loss"; return 0
 }
 
+# ---------- 国内区域节点数据 ----------
+# 格式: 城市英文名 运营商关键字 显示名称 speedtest节点ID(可选)
+declare -A REGION_NODES=(
+    ["东北_1"]="shenyang china unicom 沈阳联通 17344"
+    ["东北_2"]="dalian china unicom 大连联通 1536"
+    ["东北_3"]="changchun china unicom 长春联通"
+    ["东北_4"]="harbin china unicom 哈尔滨联通"
+    ["东北_5"]="shenyang china telecom 沈阳电信"
+    ["东北_6"]="shenyang china mobile 沈阳移动"
+    ["华北_1"]="beijing china unicom 北京联通 5145"
+    ["华北_2"]="beijing china telecom 北京电信 18472"
+    ["华北_3"]="beijing china mobile 北京移动 18475"
+    ["华北_4"]="tianjin china unicom 天津联通"
+    ["华北_5"]="tianjin china telecom 天津电信"
+    ["华北_6"]="shijiazhuang china unicom 石家庄联通"
+    ["华北_7"]="taiyuan china unicom 太原联通"
+    ["华东_1"]="shanghai china unicom 上海联通 5083"
+    ["华东_2"]="shanghai china telecom 上海电信 18471"
+    ["华东_3"]="shanghai china mobile 上海移动 18474"
+    ["华东_4"]="hangzhou china unicom 杭州联通"
+    ["华东_5"]="hangzhou china telecom 杭州电信"
+    ["华东_6"]="nanjing china unicom 南京联通"
+    ["华东_7"]="nanjing china telecom 南京电信"
+    ["华东_8"]="suzhou china unicom 苏州联通"
+    ["华南_1"]="guangzhou china unicom 广州联通 4624"
+    ["华南_2"]="guangzhou china telecom 广州电信 18470"
+    ["华南_3"]="guangzhou china mobile 广州移动 18473"
+    ["华南_4"]="shenzhen china unicom 深圳联通"
+    ["华南_5"]="shenzhen china telecom 深圳电信"
+    ["华南_6"]="fuzhou china unicom 福州联通"
+    ["华中_1"]="wuhan china unicom 武汉联通"
+    ["华中_2"]="wuhan china telecom 武汉电信"
+    ["华中_3"]="changsha china unicom 长沙联通"
+    ["华中_4"]="zhengzhou china unicom 郑州联通"
+    ["西南_1"]="chengdu china unicom 成都联通"
+    ["西南_2"]="chengdu china telecom 成都电信"
+    ["西南_3"]="chengdu china mobile 成都移动"
+    ["西南_4"]="chongqing china unicom 重庆联通"
+    ["西南_5"]="chongqing china telecom 重庆电信"
+    ["西南_6"]="kunming china unicom 昆明联通"
+    ["西北_1"]="xian china unicom 西安联通"
+    ["西北_2"]="xian china telecom 西安电信"
+    ["西北_3"]="lanzhou china unicom 兰州联通"
+    ["西北_4"]="urumqi china unicom 乌鲁木齐联通"
+)
+
+# ---------- 选择国内区域节点 ----------
+select_cn_node() {
+    echo ""
+    echo -e "${BLUE}========================================${NC}"
+    echo -e "${GREEN}🗺️  选择国内测速区域${NC}"
+    echo -e "${BLUE}========================================${NC}"
+    echo "  1) 东北"
+    echo "  2) 华北"
+    echo "  3) 华东"
+    echo "  4) 华南"
+    echo "  5) 华中"
+    echo "  6) 西南"
+    echo "  7) 西北"
+    echo "  8) 手动输入城市和运营商"
+    echo "  0) 返回"
+    read -p "请选择区域 [0-8] (默认1): " region_opt
+    region_opt=${region_opt:-1}
+
+    local region_key=""
+    case $region_opt in
+        1) region_key="东北" ;;
+        2) region_key="华北" ;;
+        3) region_key="华东" ;;
+        4) region_key="华南" ;;
+        5) region_key="华中" ;;
+        6) region_key="西南" ;;
+        7) region_key="西北" ;;
+        8)
+            read -p "请输入城市和运营商 (如: shenyang unicom): " custom_input
+            local city=$(echo "$custom_input" | awk '{print $1}')
+            local isp=$(echo "$custom_input" | awk '{print $2}')
+            local id=$(get_node_id "$city" "$isp")
+            if [ -n "$id" ]; then
+                echo "$id 自定义 ($custom_input)"
+            else
+                echo ""
+            fi
+            return
+            ;;
+        0) echo ""; return ;;
+        *) echo ""; return ;;
+    esac
+
+    # 收集该区域节点
+    local nodes=()
+    for key in "${!REGION_NODES[@]}"; do
+        if [[ "$key" == ${region_key}_* ]]; then
+            nodes+=("${REGION_NODES[$key]}")
+        fi
+    done
+
+    if [ ${#nodes[@]} -eq 0 ]; then
+        echo -e "${RED}该区域暂无预置节点${NC}"
+        echo ""
+        return
+    fi
+
+    echo ""
+    echo -e "${BLUE}========================================${NC}"
+    echo -e "${GREEN}📍 ${region_key}区域节点${NC}"
+    echo -e "${BLUE}========================================${NC}"
+    local i=1
+    local node_info
+    for node_info in "${nodes[@]}"; do
+        local name=$(echo "$node_info" | awk '{for(i=3;i<=NF;i++) printf $i" "; print ""}')
+        echo "  $i) $name"
+        i=$((i+1))
+    done
+    echo "  0) 返回"
+    read -p "请选择节点 [0-$((i-1))] (默认1): " node_opt
+    node_opt=${node_opt:-1}
+    [ "$node_opt" == "0" ] && { echo ""; return; }
+
+    if ! [[ "$node_opt" =~ ^[0-9]+$ ]] || [ "$node_opt" -lt 1 ] || [ "$node_opt" -gt $((i-1)) ]; then
+        echo -e "${RED}无效选择${NC}"
+        echo ""
+        return
+    fi
+
+    local selected="${nodes[$((node_opt-1))]}"
+    local city=$(echo "$selected" | awk '{print $1}')
+    local isp=$(echo "$selected" | awk '{print $2}')
+    local name=$(echo "$selected" | awk '{for(i=3;i<NF;i++) printf $i" "; print $NF}')
+    local pre_id=$(echo "$selected" | awk '{print $NF}')
+
+    # 如果预置ID是纯数字则直接使用，否则通过get_node_id获取
+    local id=""
+    if [[ "$pre_id" =~ ^[0-9]+$ ]]; then
+        id="$pre_id"
+    else
+        id=$(get_node_id "$city" "$isp")
+    fi
+
+    if [ -n "$id" ]; then
+        echo "$id $name"
+    else
+        echo ""
+    fi
+}
+
 # ---------- 菜单1：测速 ----------
 menu_speedtest() {
     clear
     echo -e "${BLUE}========================================${NC}"
     echo -e "${GREEN}🚀 带宽测速（先测本地，再测国内，自动对比）${NC}"
     echo -e "${BLUE}========================================${NC}"
-    
+
     local local_dl local_ul local_server
     if [ -f "$LOCAL_CACHE_FILE" ] && [ -s "$LOCAL_CACHE_FILE" ]; then
         read local_dl local_ul local_server < "$LOCAL_CACHE_FILE"
@@ -358,50 +504,18 @@ menu_speedtest() {
         evaluate_speed "本地" "$local_dl" "$local_ul" "$local_server"
     fi
 
-    echo -e "${YELLOW}\n第二步：选择国内测速节点 (运营商+城市)${NC}"
-    echo "  联通节点:"
-    echo "    1) 北京联通    2) 上海联通    3) 广州联通"
-    echo "    4) 沈阳联通    5) 大连联通"
-    echo "  移动节点:"
-    echo "    6) 北京移动    7) 上海移动    8) 广州移动"
-    echo "  电信节点:"
-    echo "    9) 北京电信   10) 上海电信   11) 广州电信"
-    echo " 12) 手动输入城市和运营商 (如: shenyang unicom)"
-    echo " 13) 自动 (不推荐，可能测到日本)"
-    echo "  0) 返回主菜单"
-    read -p "请选择 [0-13] (默认1): " opt
-    opt=${opt:-1}
-    [ "$opt" == "0" ] && return
-    local id=""
-    local desc=""
-    case $opt in
-        1) id=$(get_node_id "beijing" "china unicom"); desc="北京联通" ;;
-        2) id=$(get_node_id "shanghai" "china unicom"); desc="上海联通" ;;
-        3) id=$(get_node_id "guangzhou" "china unicom"); desc="广州联通" ;;
-        4) id=$(get_node_id "shenyang" "china unicom"); desc="沈阳联通" ;;
-        5) id=$(get_node_id "dalian" "china unicom"); desc="大连联通" ;;
-        6) id=$(get_node_id "beijing" "china mobile"); desc="北京移动" ;;
-        7) id=$(get_node_id "shanghai" "china mobile"); desc="上海移动" ;;
-        8) id=$(get_node_id "guangzhou" "china mobile"); desc="广州移动" ;;
-        9) id=$(get_node_id "beijing" "china telecom"); desc="北京电信" ;;
-       10) id=$(get_node_id "shanghai" "china telecom"); desc="上海电信" ;;
-       11) id=$(get_node_id "guangzhou" "china telecom"); desc="广州电信" ;;
-       12) read -p "请输入城市和运营商 (如: shenyang unicom): " custom; id=$(get_node_id "$custom"); desc="自定义 ($custom)" ;;
-       13) id=""; desc="自动 (不推荐)" ;;
-       *) echo "无效" ; sleep 1 ; menu_speedtest ; return ;;
-    esac
-
-    if [ -z "$id" ] && [ "$opt" != "13" ]; then
-        echo -e "${RED}❌ 未找到对应节点，请检查城市/运营商名称是否正确。${NC}"
-        show_china_nodes
+    echo -e "${YELLOW}\n第二步：选择国内测速区域${NC}"
+    local cn_node=$(select_cn_node)
+    if [ -z "$cn_node" ]; then
+        echo -e "${YELLOW}未选择国内节点，跳过国内测速。${NC}"
         read -p "按回车返回..."
         return
     fi
-    if [ -n "$id" ]; then
-        echo -e "${YELLOW}使用节点 ID: $id (${desc})${NC}"
-    else
-        echo -e "${YELLOW}使用默认就近测速 (可能测到日本)${NC}"
-    fi
+
+    local id=$(echo "$cn_node" | awk '{print $1}')
+    local desc=$(echo "$cn_node" | cut -d' ' -f2-)
+
+    echo -e "${YELLOW}使用节点 ID: $id (${desc})${NC}"
 
     local cn_result=$(run_speedtest "$id")
     local ret=$?
